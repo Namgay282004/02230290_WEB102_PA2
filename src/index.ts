@@ -85,13 +85,13 @@ app.post("/signin", async (c) => {
     // Generate JWT token upon successful login
     const payload = {
       sub: user.id,
-      exp: Math.floor(Date.now() / 1000) + 60 * 60, // Token expires in 60 minutes
+      exp: Math.floor(Date.now() / 1000) + 60 * 20, // Token expires in 20 minutes
     };
     const secret = "mySecretKey";
     const token = sign(payload, secret);
     return c.json({ message: "Login successful", token: token });
   } else {
-    throw new HTTPException(401, { message: "Invalid credentials" });
+    throw new HTTPException(401, { message: "Unauthorized" });
   }
 });
 
@@ -106,6 +106,22 @@ app.get("/pokemon/:name", async (c) => {
   } catch (error) {
     return c.json({ message: "Pokemon not found" }, 404);
   }
+});
+
+// Endpoint to fetch all caught Pokemon for the user (protected route)
+app.get("/protected/caught", async (c) => {
+  const payload = c.get('jwtPayload');
+  if (!payload) {
+    throw new HTTPException(401, { message: "Unauthorized" });
+  }
+
+  // Retrieve all caught Pokemon for the user
+  const caughtPokemon = await prisma.caughtPokemon.findMany({
+    where: { userId: payload.sub },
+    include: { pokemon: true } // Include Pokemon details
+  });
+
+  return c.json({ data: caughtPokemon });
 });
 
 // Endpoint to allow users to catch Pokemon (protected route)
@@ -155,20 +171,5 @@ app.delete("/protected/release/:id", async (c) => {
   return c.json({ message: "Pokemon released" });
 });
 
-// Endpoint to fetch all caught Pokemon for the user (protected route)
-app.get("/protected/caught", async (c) => {
-  const payload = c.get('jwtPayload');
-  if (!payload) {
-    throw new HTTPException(401, { message: "Unauthorized" });
-  }
-
-  // Retrieve all caught Pokemon for the user
-  const caughtPokemon = await prisma.caughtPokemon.findMany({
-    where: { userId: payload.sub },
-    include: { pokemon: true } // Include Pokemon details
-  });
-
-  return c.json({ data: caughtPokemon });
-});
 
 export default app;

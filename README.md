@@ -50,7 +50,6 @@ Generate the Prisma Client to match your database schema:
     ```
 
 6. **Build and start the server**:
-
     ```
     npm run build
     npm run start
