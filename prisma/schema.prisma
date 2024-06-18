@@ -24,6 +24,7 @@ model CaughtPokemon {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+  nickname  String?  
   pokemonId String
   pokemon   Pokemon  @relation(fields: [pokemonId], references: [id])
   caughtAt  DateTime @default(now())

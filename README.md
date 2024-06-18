@@ -1,3 +1,9 @@
+# Pokemon API
+
+## ## Overview
+A RESTful API to manage users and their caught Pokemon. Built with Hono, Prisma, and JWT authentication.
+
+
 ## Requirements
 
 - Node.js (v14+ recommended)
