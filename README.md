@@ -67,6 +67,7 @@ Generate the Prisma Client to match your database schema:
     The server should start at [Link](http://localhost:3000).
 
 ## API Documentation
+
 ### Authentication
 - **POST /signup**
 

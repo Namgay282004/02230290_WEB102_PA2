@@ -3,29 +3,31 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id             String     @id @default(uuid())
-  email          String     @unique
-  hashedPassword String
-  caughtPokemon  CaughtPokemon[]
-}
 
 model Pokemon {
-  id            String         @id @default(uuid())
-  name          String         @unique
-  caughtPokemon CaughtPokemon[]
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  type      String
+  height    Int
+  CaughtPokemon CaughtPokemon[]
 }
 
 model CaughtPokemon {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  nickname  String?  
-  pokemonId String
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  pokemonId Int
+  nickname  String?
   pokemon   Pokemon  @relation(fields: [pokemonId], references: [id])
-  caughtAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  pokemonType String 
+}
+model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  hashedPassword String
+  CaughtPokemon CaughtPokemon[]
 }

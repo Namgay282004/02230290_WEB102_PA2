@@ -107,18 +107,113 @@ app.post("/signin", async (c) => {
   }
 });
 
-// Endpoint to fetch Pokemon data from PokeAPI
+// Endpoint to fetch Pokemon data from PokeAPI and store in local database
 app.get("/pokemon/:name", async (c) => {
   const { name } = c.req.param();
 
   try {
-    // Fetch data from PokeAPI
-    const response = await axios.get(`https://pokeapi.co/api/v2/pokemon/${name}`);
-    return c.json({ data: response.data });
+    // Check if the Pokemon exists in the local database
+    let pokemon = await prisma.pokemon.findUnique({
+      where: { name: name },
+    });
+
+    if (!pokemon) {
+      // Fetch data from PokeAPI if not found locally
+      const response = await axios.get(`https://pokeapi.co/api/v2/pokemon/${name}`);
+      const pokemonData = response.data;
+
+      // Store the fetched Pokemon data in the local database
+      pokemon = await prisma.pokemon.create({
+        data: {
+          name: pokemonData.name,
+          type: pokemonData.types.map((typeInfo: any) => typeInfo.type.name).join(', '),
+          height: pokemonData.height,
+        },
+      });
+    }
+
+    return c.json({ data: pokemon });
   } catch (error) {
     return c.json({ message: "Pokemon not found" }, 404);
   }
 });
+
+// Endpoint to add a new Pokemon to the database
+app.post("/pokemon", async (c) => {
+  const body = await c.req.json();
+  const { name, type, height } = body;
+
+  try {
+    // Check if the Pokemon already exists
+    const existingPokemon = await prisma.pokemon.findUnique({
+      where: { name: name },
+    });
+
+    if (existingPokemon) {
+      return c.json({ message: "Pokemon already exists" }, 400);
+    }
+
+    // Create new Pokemon in the database
+    const newPokemon = await prisma.pokemon.create({
+      data: {
+        name: name,
+        type: type,
+        height: height,
+      },
+    });
+
+    return c.json({ message: "Pokemon added successfully", data: newPokemon });
+  } catch (error) {
+    throw new HTTPException(500, { message: "Internal Server Error" });
+  }
+});
+
+// Endpoint to update existing Pokemon in the database
+app.patch("/pokemon/:id", async (c) => {
+  const { id } = c.req.param();
+  const numericId = Number(id); // Convert the id to a number
+  const body = await c.req.json();
+  const { name, type, height } = body;
+
+  try {
+    // Update the Pokemon details
+    const updatedPokemon = await prisma.pokemon.update({
+      where: { id: numericId },
+      data: {
+        name: name,
+        type: type,
+        height: height,
+      },
+    });
+
+    return c.json({ message: "Pokemon updated successfully", data: updatedPokemon });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return c.json({ message: "Pokemon not found" }, 404);
+    }
+    throw new HTTPException(500, { message: "Internal Server Error" });
+  }
+});
+
+// Endpoint to delete an existing Pokemon from the database by name
+app.delete("/pokemon/:name", async (c) => {
+  const { name } = c.req.param();
+
+  try {
+    // Delete the Pokemon
+    const deletedPokemon = await prisma.pokemon.delete({
+      where: { name: name },
+    });
+
+    return c.json({ message: "Pokemon deleted successfully", data: deletedPokemon });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return c.json({ message: "Pokemon not found" }, 404);
+    }
+    throw new HTTPException(500, { message: "Internal Server Error" });
+  }
+});
+
 
 // Endpoint to fetch all caught Pokemon for the user (protected route)
 app.get("/protected/caught", async (c) => {
@@ -151,7 +246,11 @@ app.post("/protected/catch", async (c) => {
   
   if (!pokemon) {
     pokemon = await prisma.pokemon.create({
-      data: { name: pokemonName }
+      data: { 
+        name: pokemonName,
+        type: body.type,
+        height: body.height
+      }
     });
   }
 
@@ -159,7 +258,8 @@ app.post("/protected/catch", async (c) => {
   const caughtPokemon = await prisma.caughtPokemon.create({
     data: {
       userId: payload.sub,
-      pokemonId: pokemon.id
+      pokemonId: pokemon.id,
+      pokemonType: pokemon.type
     }
   });
 
@@ -167,19 +267,20 @@ app.post("/protected/catch", async (c) => {
 });
 
 // Endpoint to update a caught Pokemon (protected route)
-app.put("/protected/update/:id", async (c) => {
+app.patch("/protected/update/:id", async (c) => {
   const payload = c.get('jwtPayload');
   if (!payload) {
     throw new HTTPException(401, { message: "Unauthorized" });
   }
 
   const { id } = c.req.param();
+  const numericId = Number(id); // Convert the id to a number
   const body = await c.req.json();
   const { nickname } = body;
 
   // Updates the specified Pokemon in the user's collection
   const updatedPokemon = await prisma.caughtPokemon.updateMany({
-    where: { id: id, userId: payload.sub },
+    where: { id: numericId, userId: payload.sub },
     data: { nickname: nickname }
   });
 
@@ -190,21 +291,22 @@ app.put("/protected/update/:id", async (c) => {
   return c.json({ message: "Pokemon updated", data: updatedPokemon });
 });
 
-// Endpoint to release a caught Pokemon (protected route)
-app.delete("/protected/release/:id", async (c) => {
+// Endpoint to delete a caught Pokemon (protected route)
+app.delete("/protected/delete/:id", async (c) => {
   const payload = c.get('jwtPayload');
   if (!payload) {
     throw new HTTPException(401, { message: "Unauthorized" });
   }
 
   const { id } = c.req.param();
+  const numericId = Number(id); // Convert the id to a number
 
   // Delete the specified Pokemon from the user's collection
   await prisma.caughtPokemon.deleteMany({
-    where: { id: id, userId: payload.sub }
+    where: { id: numericId, userId: payload.sub }
   });
 
   return c.json({ message: "Pokemon released" });
-});
+})
 
 export default app;
